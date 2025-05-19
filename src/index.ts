@@ -2,15 +2,32 @@ import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { typeDefs, resolvers } from "./graphql";
 import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
 
 const prisma = new PrismaClient();
 const app = express();
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+
+const getUserFromToken = (req: any) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) return null;
+  const token = auth.replace("Bearer ", "");
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    return { id: decoded.userId };
+  } catch {
+    return null;
+  }
+};
 
 async function startServer() {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    context: () => ({ prisma }),
+    context: ({ req }) => ({
+      user: getUserFromToken(req),
+      prisma,
+    }),
   });
 
   await server.start();
