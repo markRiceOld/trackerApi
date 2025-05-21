@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 const prisma = new PrismaClient();
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+const PORT = process.env.PORT || 4000;
 
 const getUserFromToken = (req: any) => {
   const auth = req.headers.authorization;
