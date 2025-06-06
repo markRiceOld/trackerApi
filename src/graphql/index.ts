@@ -1,6 +1,7 @@
 import { gql } from "apollo-server-express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { env } from "process";
 
 export const typeDefs = gql`
   type Action {
@@ -116,10 +117,12 @@ export const typeDefs = gql`
   }
 `;
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret"; // use env in real deployments
+
 const SALT_ROUNDS = 10;
 
 function signToken(user: { id: string }) {
+  const JWT_SECRET = env.JWT_SECRET ?? "dev-secret"; // use env in real deployments
+
   return jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
 }
 

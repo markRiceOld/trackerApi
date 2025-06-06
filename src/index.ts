@@ -3,13 +3,13 @@ import { ApolloServer } from "apollo-server-express";
 import { typeDefs, resolvers } from "./graphql";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
+import { env } from "process";
 
 const prisma = new PrismaClient();
 const app = express();
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-const PORT = process.env.PORT || 4000;
 
 const getUserFromToken = (req: any) => {
+  const JWT_SECRET = env.JWT_SECRET || "dev-secret";
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const token = auth.replace("Bearer ", "");
@@ -22,6 +22,7 @@ const getUserFromToken = (req: any) => {
 };
 
 async function startServer() {
+  const PORT = env.PORT || 4000;
   const server = new ApolloServer({
     typeDefs,
     resolvers,
@@ -34,8 +35,8 @@ async function startServer() {
   await server.start();
   server.applyMiddleware({ app: app as any });
 
-  app.listen(4000, () => {
-    console.log("🚀 Server ready at http://localhost:4000/graphql");
+  app.listen(PORT, () => {
+    console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
   });
 }
 
