@@ -8,75 +8,201 @@ generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 // datasource db {
-//   provider = "sqlite"
+//   provider = "postgresql"
 //   url      = env("DATABASE_URL")
 // }
 
-model Action {
-  id        String   @id @default(uuid())
-  title     String
-  tbd       DateTime?
-  done      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  projectId String?   
-  project   Project?  @relation(fields: [projectId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-model Habit {
-  id        String   @id @default(cuid())
-  title     String
-  goals     Goal[]
-  createdAt DateTime @default(now())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+// Priority: P = high urgency + high importance, S = low urgency + high importance,
+// O = high urgency + low importance (outsource), B = low urgency + low importance (bucket list)
+enum Priority {
+  P   // Primary
+  S   // Secondary
+  O   // Outsource
+  B   // BucketList
+}
+
+// How often an interval repeats (e.g. repeatValue=2 + repeatUnit=week = every 2 weeks)
+enum RepeatUnit {
+  minute
+  hour
+  day
+  week
+  month
+  year
+}
+
+enum IntervalStatus {
+  active
+  inactive
+}
+
+// How action was disposed in After-day wizard (null = still scheduled or done)
+enum ActionFate {
+  Postponed
+  OutsourceWoo
+  Backlog
+  BucketList
+  PassedArchived
+}
+
+// Source of gathered actions; null = user-created (standalone or project-linked)
+enum ActionSourceType {
+  interval
+  routine
+}
+
+model Action {
+  id                   String            @id @default(uuid())
+  title                String
+  tbd                  DateTime?
+  done                 Boolean           @default(false)
+  priority             Priority          @default(P)
+  estimatedTimeMinutes Int?              // Required when tbd is set; max 1440 (24h)
+  startTimeOfDay       String?           // "HH:mm" - when to start; optional at create, required in Pre-day for day actions
+  createdAt            DateTime          @default(now())
+  projectId            String?
+  project              Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Gathered action fields (Option A: reuse Action)
+  sourceType           ActionSourceType?
+  sourceId             String?           // interval or routine id
+  forDate              DateTime?         // calendar day this gathered action is for (hidden until this day)
+  isGathered           Boolean           @default(false)
+  actionFate           ActionFate?       // set when disposed in After-day wizard
+}
+
+model DayState {
+  id                         String    @id @default(uuid())
+  userId                     String
+  user                       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateKey                    String    // "YYYY-MM-DD" local date (calendar day)
+  afterDayCompletedAt        DateTime?
+  actionGatheringCompletedAt DateTime?
+  preDayCompletedAt          DateTime?
+  @@unique([userId, dateKey])
 }
 
 model Goal {
-  id         String       @id @default(cuid())
-  title      String
-  dod        String?
-  habitId    String?       // Nullable (standalone or linked)
-  habit      Habit?        @relation(fields: [habitId], references: [id])
-  milestones Milestone[]   // One-to-many
-  projects   Project[]
-  createdAt  DateTime      @default(now())
-  startDate  DateTime?
-  endDate    DateTime?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id                 String     @id @default(cuid())
+  title              String
+  dod                String?
+  isGoalGroup        Boolean    @default(false)  // Goal group: children are goals, not projects; milestones contain goals
+  parentGoalId       String?
+  parentMilestoneId  String?
+  parentGoal         Goal?      @relation("GoalChildren", fields: [parentGoalId], references: [id], onDelete: SetNull)
+  childGoals         Goal[]     @relation("GoalChildren")
+  parentMilestone    Milestone? @relation("MilestoneChildGoals", fields: [parentMilestoneId], references: [id], onDelete: SetNull)
+  milestones         Milestone[] @relation("GoalMilestones")
+  projects           Project[]
+  intervals          Interval[]
+  createdAt          DateTime   @default(now())
+  startDate          DateTime?
+  endDate           DateTime?
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Milestone {
-  id        String    @id @default(cuid())
-  title     String
-  goalId    String
-  goal      Goal      @relation(fields: [goalId], references: [id])
-  projects  Project[]
-  createdAt DateTime  @default(now())
+  id             String    @id @default(cuid())
+  title          String
+  doa            String?   // Definition of achieved
+  goalId         String
+  goal           Goal      @relation("GoalMilestones", fields: [goalId], references: [id], onDelete: Cascade)
+  childGoals     Goal[]    @relation("MilestoneChildGoals")  // Goals under this milestone (when parent goal is a goal group)
+  projects       Project[]
+  intervals      Interval[]
+  createdAt      DateTime  @default(now())
+  predictionDate DateTime?  // Optional; no effect on ordering or logic
+  order          Int       @default(0)   // Display order within goal (lower first; last milestone kept at end)
+  isLast         Boolean   @default(false)  // At most one per goal; new milestones are added before this one
 }
 
+// Project links to goal OR milestone, not both. Enforced by DB check in migration.
 model Project {
   id        String    @id @default(uuid())
   title     String
-  dod       String?   
+  dod       String?
   type      String    @default("individual")
+  priority  Priority  @default(P)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   actions   Action[]
-  goalId      String?      // Optional link (if not tied through milestone)
-  milestoneId String?      // Optional link
-  goal        Goal?        @relation(fields: [goalId], references: [id])
-  milestone   Milestone?   @relation(fields: [milestoneId], references: [id])
+  intervals Interval[]
+  goalId      String?      // Optional direct link to goal
+  milestoneId String?      // Optional link via milestone (goal derived from milestone)
+  goal        Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  milestone   Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Conceptual steps for each repetition of an interval (not the same as Action).
+model IntervalStep {
+  id         String   @id @default(uuid())
+  title      String
+  order      Int      @default(0)
+  intervalId String
+  interval   Interval @relation(fields: [intervalId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+// Intervals can be standalone or scoped to a goal OR a milestone OR a project (one at most).
+// endTime = until when repetitions count. App-level: when scoped to goal/project/milestone, endTime is typically required.
+// Repeat: use repeatValue+repeatUnit for recurrence, and/or customRepeatDates (JSON array of ISO date-time strings) for specific dates.
+model Interval {
+  id                   String         @id @default(uuid())
+  title                String
+  status               IntervalStatus @default(active)
+  estimatedTimeMinutes Int?           // Required; max 1440 (24h)
+  endTime              DateTime?     // Optional; until which date/time repetitions must be considered
+  repeatValue          Int            @default(1)  // e.g. every 2 weeks => repeatValue=2, repeatUnit=week
+  repeatUnit           RepeatUnit?    // Null when using only customRepeatDates
+  customRepeatDates    String?        // JSON array of ISO date-time strings for specific repeat dates
+  customRepeatRule     String?        // JSON: { unit: "week", daysOfWeek: [1..7] } or { unit: "month", daysOfMonth: [1..31] } or { unit: "year", months: [1..12], daysOfMonth?: [1..31] }
+  predictedToDoTime    String?        // Optional "HH:mm" default to-do time for gathered actions
+  steps                IntervalStep[]
+  goalId      String?
+  milestoneId String?
+  projectId   String?
+  goal        Goal?      @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// Routine: daily-with-timer style; no link to goal/milestone/project.
+model RoutineStep {
+  id         String   @id @default(uuid())
+  title      String
+  order      Int      @default(0)
+  routineId  String
+  routine    Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model Routine {
+  id                   String   @id @default(uuid())
+  title                String
+  status               IntervalStatus @default(active)
+  estimatedTimeMinutes Int?     // Required; max 1440 (24h)
+  endTime              DateTime?
+  timeOfDayBlocks      String?  // JSON array of "HH:mm" - when in the day (multiple blocks)
+  timerDurationMinutes Int?     // Timer length per occurrence
+  steps                RoutineStep[]
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model User {
@@ -90,6 +216,7 @@ model User {
   actions   Action[]
   projects  Project[]
   goals     Goal[]
-  habits    Habit[]
+  intervals Interval[]
+  routines  Routine[]
+  dayStates DayState[]
 }
-
