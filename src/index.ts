@@ -9,9 +9,12 @@ import cors from "cors";
 const prisma = new PrismaClient();
 const app = express();
 
+const corsOrigins =
+  process.env.CORS_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+
 app.use(
   cors({
-    origin: ["https://tracker.m-root.com"],
+    origin: corsOrigins,
     credentials: true,
   })
 );
