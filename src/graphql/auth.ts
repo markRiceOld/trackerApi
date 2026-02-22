@@ -12,8 +12,16 @@ export function signToken(user: { id: string }) {
 export function requireAuth<TArgs>(
   resolver: (parent: any, args: TArgs, ctx: any) => any
 ) {
-  return (parent: any, args: TArgs, ctx: any) => {
+  return async (parent: any, args: TArgs, ctx: any) => {
     if (!ctx.user) throw new Error("Unauthorized");
+    // If DB was reset (e.g. migrate dev), token can reference a deleted user id.
+    if (ctx.prisma?.user) {
+      const existingUser = await ctx.prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { id: true },
+      });
+      if (!existingUser) throw new Error("Unauthorized");
+    }
     return resolver(parent, args, ctx);
   };
 }

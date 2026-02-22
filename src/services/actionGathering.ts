@@ -61,6 +61,7 @@ function intervalOccursOnDate(
         daysOfWeek?: number[];
         daysOfMonth?: number[];
         months?: number[];
+        timeOfDayBlocks?: string[];
       };
       if (rule.unit === "week" && Array.isArray(rule.daysOfWeek)) {
         const dow = getISODayOfWeek(date);
@@ -120,6 +121,34 @@ function intervalOccursOnDate(
 
   // No rule: no occurrence
   return false;
+}
+
+/** Parse interval time blocks from customRepeatRule.timeOfDayBlocks; fallback to predictedToDoTime or 09:00. */
+function getIntervalOccurrencesForDate(interval: {
+  customRepeatRule: string | null;
+  predictedToDoTime: string | null;
+}): { startTimeOfDay: string }[] {
+  let blocks: string[] = [];
+  if (interval.customRepeatRule != null && interval.customRepeatRule !== "") {
+    try {
+      const rule = JSON.parse(interval.customRepeatRule) as { timeOfDayBlocks?: string[] };
+      if (Array.isArray(rule.timeOfDayBlocks)) {
+        blocks = rule.timeOfDayBlocks
+          .map((s) => String(s).trim().slice(0, 5))
+          .filter((s) => /^\d{2}:\d{2}$/.test(s));
+      }
+    } catch {
+      // ignore invalid customRepeatRule
+    }
+  }
+  if (blocks.length === 0) {
+    const fallback =
+      interval.predictedToDoTime && /^\d{2}:\d{2}$/.test(interval.predictedToDoTime)
+        ? interval.predictedToDoTime
+        : "09:00";
+    blocks = [fallback];
+  }
+  return blocks.map((startTimeOfDay) => ({ startTimeOfDay }));
 }
 
 /** True if date is exactly (anchor + N * repeatValue repeatUnit) for some N >= 0. */
@@ -237,39 +266,39 @@ export async function runActionGathering(
 
     const forDate = dateKeyToDate(dateKey);
 
-    // ---- Intervals: one action per interval per date (if occurs)
+    // ---- Intervals: one action per interval per date per time block (if occurs)
     for (const interval of intervals) {
       if (!intervalOccursOnDate(interval, dateKey)) continue;
 
-      const existing = await prisma.action.findFirst({
-        where: {
-          userId,
-          forDate,
-          sourceType: "interval",
-          sourceId: interval.id,
-          isGathered: true,
-        },
-      });
-      if (existing) continue;
+      const occurrences = getIntervalOccurrencesForDate(interval);
+      for (const { startTimeOfDay } of occurrences) {
+        const existing = await prisma.action.findFirst({
+          where: {
+            userId,
+            forDate,
+            sourceType: "interval",
+            sourceId: interval.id,
+            startTimeOfDay,
+            isGathered: true,
+          },
+        });
+        if (existing) continue;
 
-      const startTimeOfDay =
-        interval.predictedToDoTime && /^\d{2}:\d{2}$/.test(interval.predictedToDoTime)
-          ? interval.predictedToDoTime
-          : undefined;
-      await prisma.action.create({
-        data: {
-          userId,
-          title: interval.title,
-          estimatedTimeMinutes: interval.estimatedTimeMinutes ?? undefined,
-          startTimeOfDay: startTimeOfDay ?? undefined,
-          forDate,
-          sourceType: "interval",
-          sourceId: interval.id,
-          isGathered: true,
-          priority: "P",
-        },
-      });
-      actionsCreated++;
+        await prisma.action.create({
+          data: {
+            userId,
+            title: interval.title,
+            estimatedTimeMinutes: interval.estimatedTimeMinutes ?? undefined,
+            startTimeOfDay,
+            forDate,
+            sourceType: "interval",
+            sourceId: interval.id,
+            isGathered: true,
+            priority: "P",
+          },
+        });
+        actionsCreated++;
+      }
     }
 
     // ---- Routines: one action per routine per date per time block

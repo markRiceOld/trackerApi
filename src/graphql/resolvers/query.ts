@@ -28,6 +28,20 @@ export const queryResolvers = {
   ),
   goals: requireAuth((_, args: any, ctx) => {
     const where: any = { userId: ctx.user.id };
+    if (args.includeAll === true) {
+      return ctx.prisma.goal.findMany({
+        where,
+        include: {
+          milestones: {
+            include: { projects: true, childGoals: { select: { id: true, title: true, isGoalGroup: true } } },
+            orderBy: [{ isLast: "asc" }, { order: "asc" }],
+          },
+          projects: { include: { actions: true } },
+          childGoals: { select: { id: true, title: true, isGoalGroup: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
     const hasParent = args.parentGoalId !== undefined || args.parentMilestoneId !== undefined;
     if (hasParent) {
       if (args.parentGoalId != null && args.parentMilestoneId != null) throw new Error("Use only one of parentGoalId or parentMilestoneId.");
@@ -57,13 +71,13 @@ export const queryResolvers = {
       include: {
         milestones: {
           include: {
-            projects: { include: { actions: { select: { id: true, done: true } } } },
+            projects: { include: { actions: { select: { id: true, title: true, tbd: true, done: true } } } },
             childGoals: { select: { id: true, title: true, isGoalGroup: true } },
             intervals: { include: { steps: { orderBy: { order: "asc" } } } },
           },
           orderBy: [{ isLast: "asc" }, { order: "asc" }],
         },
-        projects: { include: { actions: { select: { id: true, done: true } } } },
+        projects: { include: { actions: { select: { id: true, title: true, tbd: true, done: true } } } },
         childGoals: { select: { id: true, title: true, isGoalGroup: true } },
         intervals: { include: { steps: { orderBy: { order: "asc" } } } },
         parentGoal: { select: { id: true, title: true, isGoalGroup: true } },

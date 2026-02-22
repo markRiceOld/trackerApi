@@ -212,7 +212,7 @@ export const typeDefs = gql`
     action(id: ID!): Action
     projects: [Project!]!
     project(id: ID!): Project
-    goals(parentGoalId: ID, parentMilestoneId: ID): [Goal!]!
+    goals(parentGoalId: ID, parentMilestoneId: ID, includeAll: Boolean): [Goal!]!
     goal(id: ID!): Goal
     intervals: [Interval!]!
     interval(id: ID!): Interval
