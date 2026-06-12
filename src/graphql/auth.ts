@@ -27,7 +27,7 @@ export function requireAuth<TArgs>(
 }
 
 /** Throws if resource is missing or does not belong to the current user (use "Not found" to avoid leaking existence). */
-export function ensureOwned(resource: { userId: string } | null, ctx: { user: { id: string } }) {
+export function ensureOwned(resource: { userId: string } | null, ctx: { user: { id: string } }): asserts resource is { userId: string } {
   if (!resource || resource.userId !== ctx.user.id) {
     throw new Error("Not found");
   }

@@ -656,7 +656,9 @@ mutations.postponeAction = requireAuth(async (_: any, { id, newDate }: any, ctx:
     where: { id },
     data: {
       ...(existing!.isGathered ? { forDate } : { tbd: forDate }),
-      actionFate: "Postponed",
+      actionFate: null,
+      // Clear assigned time so gathered actions re-enter the time-assignment flow on the new date
+      ...(existing!.isGathered ? { startTimeOfDay: null } : {}),
     },
   });
 });
