@@ -1,4 +1,9 @@
 export const typeResolvers = {
+  Note: {
+    createdAt: (parent: any) => new Date(parent.createdAt).toISOString(),
+    updatedAt: (parent: any) => new Date(parent.updatedAt).toISOString(),
+  },
+
   DayState: {
     afterDayCompletedAt: (parent: any) =>
       parent.afterDayCompletedAt != null ? new Date(parent.afterDayCompletedAt).toISOString() : null,

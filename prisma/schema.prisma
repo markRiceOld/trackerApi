@@ -207,6 +207,19 @@ model Routine {
   updatedAt             DateTime @updatedAt
 }
 
+model Note {
+  id         String   @id @default(uuid())
+  entityType String   // "action" | "project" | "goal" | "milestone" | "routine" | "interval"
+  entityId   String
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -221,4 +234,5 @@ model User {
   intervals Interval[]
   routines  Routine[]
   dayStates DayState[]
+  notes     Note[]
 }

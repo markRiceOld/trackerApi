@@ -754,4 +754,23 @@ mutations.completePreDay = requireAuth(async (_: any, { date }: any, ctx: any) =
   });
 });
 
+// ---- Notes ----
+mutations.addNote = requireAuth(async (_, { entityType, entityId, body }: any, ctx) => {
+  return ctx.prisma.note.create({
+    data: { entityType, entityId, body: body.trim(), userId: ctx.user.id },
+  });
+});
+
+mutations.updateNote = requireAuth(async (_, { id, body }: any, ctx) => {
+  const existing = await ctx.prisma.note.findUnique({ where: { id } });
+  ensureOwned(existing, ctx);
+  return ctx.prisma.note.update({ where: { id }, data: { body: body.trim() } });
+});
+
+mutations.deleteNote = requireAuth(async (_, { id }: any, ctx) => {
+  const existing = await ctx.prisma.note.findUnique({ where: { id } });
+  ensureOwned(existing, ctx);
+  return ctx.prisma.note.delete({ where: { id } });
+});
+
 export const mutationResolvers = mutations;

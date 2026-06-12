@@ -180,6 +180,15 @@ export const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Note {
+    id: ID!
+    entityType: String!
+    entityId: ID!
+    body: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type User {
     id: ID!
     email: String!
@@ -230,6 +239,7 @@ export const typeDefs = gql`
     "Not-done actions for date, grouped for After-day wizard (non-linked gathered, linked gathered, standalone)."
     notDoneActionsForDate(date: String!): NotDoneActionsForDate!
     me: User
+    notes(entityType: String!, entityId: ID!): [Note!]!
   }
 
   type AuthPayload {
@@ -352,6 +362,10 @@ export const typeDefs = gql`
     completeAfterDay(date: String!): DayState!
     "Mark pre-day as completed for date (sets preDayCompletedAt); Today becomes accessible."
     completePreDay(date: String!): DayState!
+
+    addNote(entityType: String!, entityId: ID!, body: String!): Note!
+    updateNote(id: ID!, body: String!): Note!
+    deleteNote(id: ID!): Note!
 
     register(email: String!, password: String!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!

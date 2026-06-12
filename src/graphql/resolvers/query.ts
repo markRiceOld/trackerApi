@@ -149,4 +149,10 @@ export const queryResolvers = {
   me: requireAuth((_, __, ctx) =>
     ctx.prisma.user.findUnique({ where: { id: ctx.user.id } })
   ),
+  notes: requireAuth((_, { entityType, entityId }: any, ctx) =>
+    ctx.prisma.note.findMany({
+      where: { entityType, entityId, userId: ctx.user.id },
+      orderBy: { createdAt: "asc" },
+    })
+  ),
 };
