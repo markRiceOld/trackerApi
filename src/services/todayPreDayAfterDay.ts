@@ -17,13 +17,13 @@ function toDateKey(d: Date): string {
 }
 
 /** Minutes from midnight for "HH:mm". */
-function timeToMinutes(s: string): number {
+export function timeToMinutes(s: string): number {
   const [h, m] = s.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
 /** Overlap: [startA, startA+estA) vs [startB, startB+estB). */
-function overlaps(
+export function overlaps(
   startMinA: number,
   estMinA: number,
   startMinB: number,

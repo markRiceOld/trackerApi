@@ -23,7 +23,7 @@ function getISODayOfWeek(d: Date): number {
 }
 
 /** Return true if the interval has an occurrence on the given dateKey (YYYY-MM-DD). */
-function intervalOccursOnDate(
+export function intervalOccursOnDate(
   interval: {
     customRepeatDates: string | null;
     customRepeatRule: string | null;
@@ -124,7 +124,7 @@ function intervalOccursOnDate(
 }
 
 /** Parse interval time blocks from customRepeatRule.timeOfDayBlocks; fallback to predictedToDoTime or 09:00. */
-function getIntervalOccurrencesForDate(interval: {
+export function getIntervalOccurrencesForDate(interval: {
   customRepeatRule: string | null;
   predictedToDoTime: string | null;
 }): { startTimeOfDay: string }[] {
@@ -152,7 +152,7 @@ function getIntervalOccurrencesForDate(interval: {
 }
 
 /** True if date is exactly (anchor + N * repeatValue repeatUnit) for some N >= 0. */
-function dateMatchesRepeatFromAnchor(
+export function dateMatchesRepeatFromAnchor(
   anchor: Date,
   date: Date,
   repeatValue: number,
