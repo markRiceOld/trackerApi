@@ -184,6 +184,10 @@ mutations.addGoal = requireAuth(async (_, args: any, ctx) => {
       parentGoalId: args.parentGoalId ?? undefined,
       parentMilestoneId: args.parentMilestoneId ?? undefined,
       userId: ctx.user.id,
+      ...(args.dodClarityStatus !== undefined && { dodClarityStatus: args.dodClarityStatus }),
+      ...(args.dodFlaggedDimensions !== undefined && {
+        dodFlaggedDimensions: JSON.stringify(args.dodFlaggedDimensions),
+      }),
     },
   });
 });
@@ -210,6 +214,10 @@ mutations.updateGoal = requireAuth(async (_, args: any, ctx) => {
     ...(args.isGoalGroup !== undefined && { isGoalGroup: args.isGoalGroup }),
     ...(args.startDate !== undefined && { startDate: args.startDate ? new Date(args.startDate) : null }),
     ...(args.endDate !== undefined && { endDate: args.endDate ? new Date(args.endDate) : null }),
+    ...(args.dodClarityStatus !== undefined && { dodClarityStatus: args.dodClarityStatus }),
+    ...(args.dodFlaggedDimensions !== undefined && {
+      dodFlaggedDimensions: JSON.stringify(args.dodFlaggedDimensions),
+    }),
   };
   if (args.parentGoalId !== undefined) {
     data.parentGoalId = args.parentGoalId ?? null;
@@ -222,6 +230,18 @@ mutations.updateGoal = requireAuth(async (_, args: any, ctx) => {
   return ctx.prisma.goal.update({
     where: { id: args.id },
     data,
+  });
+});
+mutations.saveDodClarity = requireAuth(async (_, args: any, ctx) => {
+  const existing = await ctx.prisma.goal.findUnique({ where: { id: args.id } });
+  ensureOwned(existing, ctx);
+  return ctx.prisma.goal.update({
+    where: { id: args.id },
+    data: {
+      ...(args.dod !== undefined && { dod: args.dod }),
+      dodClarityStatus: args.dodClarityStatus,
+      dodFlaggedDimensions: JSON.stringify(args.dodFlaggedDimensions),
+    },
   });
 });
 mutations.deleteGoal = requireAuth(async (_, args: any, ctx) => {

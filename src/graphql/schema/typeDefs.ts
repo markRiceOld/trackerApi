@@ -116,6 +116,8 @@ export const typeDefs = gql`
     milestones: [Milestone!]!
     projects: [Project!]!
     intervals: [Interval!]!
+    dodClarityStatus: String
+    dodFlaggedDimensions: [String!]!
   }
 
   type Milestone {
@@ -265,8 +267,10 @@ export const typeDefs = gql`
     ): Project!
     deleteProject(id: ID!): Project!
 
-    addGoal(title: String!, dod: String, isGoalGroup: Boolean, parentGoalId: ID, parentMilestoneId: ID): Goal!
-    updateGoal(id: ID!, title: String, dod: String, isGoalGroup: Boolean, startDate: String, endDate: String, parentGoalId: ID, parentMilestoneId: ID): Goal!
+    addGoal(title: String!, dod: String, isGoalGroup: Boolean, parentGoalId: ID, parentMilestoneId: ID, dodClarityStatus: String, dodFlaggedDimensions: [String!]): Goal!
+    updateGoal(id: ID!, title: String, dod: String, isGoalGroup: Boolean, startDate: String, endDate: String, parentGoalId: ID, parentMilestoneId: ID, dodClarityStatus: String, dodFlaggedDimensions: [String!]): Goal!
+    "Save DoD clarity check results for a goal. Accepts the (possibly edited) dod alongside clarity data."
+    saveDodClarity(id: ID!, dod: String, dodClarityStatus: String!, dodFlaggedDimensions: [String!]!): Goal!
     deleteGoal(id: ID!): Goal!
 
     addMilestone(goalId: ID!, title: String!, doa: String, predictionDate: String, isLast: Boolean): Milestone!

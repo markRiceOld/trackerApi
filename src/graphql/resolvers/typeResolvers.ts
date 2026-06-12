@@ -110,6 +110,15 @@ export const typeResolvers = {
       if (parent.parentMilestone != null) return parent.parentMilestone;
       return ctx.prisma.milestone.findUnique({ where: { id: parent.parentMilestoneId } });
     },
+    dodFlaggedDimensions: (parent: any) => {
+      if (parent.dodFlaggedDimensions == null || parent.dodFlaggedDimensions === "") return [];
+      try {
+        const arr = JSON.parse(parent.dodFlaggedDimensions);
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
+    },
   },
 
   Milestone: {

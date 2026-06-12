@@ -102,11 +102,13 @@ model Goal {
   milestones         Milestone[] @relation("GoalMilestones")
   projects           Project[]
   intervals          Interval[]
-  createdAt          DateTime   @default(now())
-  startDate          DateTime?
-  endDate           DateTime?
-  userId             String
-  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt              DateTime   @default(now())
+  startDate              DateTime?
+  endDate                DateTime?
+  dodClarityStatus       String?    // "green" | "amber" — null means check not run
+  dodFlaggedDimensions   String?    // JSON array of flagged dimension keys
+  userId                 String
+  user                   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Milestone {
