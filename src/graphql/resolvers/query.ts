@@ -1,6 +1,17 @@
 import { requireAuth } from "../auth";
 import { getTodayActions, getPreDayStatus, getNotDoneActionsForDate } from "../../services/todayPreDayAfterDay";
 
+const INTERVAL_DATES_SELECT = {
+  select: { id: true, createdAt: true, endTime: true, status: true },
+} as const;
+
+const PROJECT_WITH_DATES_INCLUDE = {
+  include: {
+    actions: true,
+    intervals: INTERVAL_DATES_SELECT,
+  },
+} as const;
+
 export const queryResolvers = {
   actions: requireAuth((_, __, ctx) =>
     ctx.prisma.action.findMany({
@@ -16,14 +27,14 @@ export const queryResolvers = {
   projects: requireAuth((_, __, ctx) =>
     ctx.prisma.project.findMany({
       where: { userId: ctx.user.id },
-      include: { actions: true, goal: true, milestone: true },
+      include: { actions: true, goal: true, milestone: true, intervals: INTERVAL_DATES_SELECT },
       orderBy: { createdAt: "desc" },
     })
   ),
   project: requireAuth((_, { id }: any, ctx) =>
     ctx.prisma.project.findFirst({
       where: { id, userId: ctx.user.id },
-      include: { actions: true, goal: true, milestone: true },
+      include: { actions: true, goal: true, milestone: true, intervals: INTERVAL_DATES_SELECT },
     })
   ),
   goals: requireAuth((_, args: any, ctx) => {
@@ -33,11 +44,15 @@ export const queryResolvers = {
         where,
         include: {
           milestones: {
-            include: { projects: true, childGoals: { select: { id: true, title: true, isGoalGroup: true } } },
+            include: {
+              projects: PROJECT_WITH_DATES_INCLUDE,
+              childGoals: { select: { id: true, title: true, isGoalGroup: true } },
+            },
             orderBy: [{ isLast: "asc" }, { order: "asc" }],
           },
-          projects: { include: { actions: true } },
+          projects: PROJECT_WITH_DATES_INCLUDE,
           childGoals: { select: { id: true, title: true, isGoalGroup: true } },
+          intervals: INTERVAL_DATES_SELECT,
         },
         orderBy: { createdAt: "desc" },
       });
@@ -56,11 +71,15 @@ export const queryResolvers = {
       where,
       include: {
         milestones: {
-          include: { projects: true, childGoals: { select: { id: true, title: true, isGoalGroup: true } } },
+          include: {
+            projects: PROJECT_WITH_DATES_INCLUDE,
+            childGoals: { select: { id: true, title: true, isGoalGroup: true } },
+          },
           orderBy: [{ isLast: "asc" }, { order: "asc" }],
         },
-        projects: { include: { actions: true } },
+        projects: PROJECT_WITH_DATES_INCLUDE,
         childGoals: { select: { id: true, title: true, isGoalGroup: true } },
+        intervals: INTERVAL_DATES_SELECT,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -71,13 +90,23 @@ export const queryResolvers = {
       include: {
         milestones: {
           include: {
-            projects: { include: { actions: { select: { id: true, title: true, tbd: true, done: true } } } },
+            projects: {
+              include: {
+                actions: { select: { id: true, title: true, tbd: true, done: true } },
+                intervals: INTERVAL_DATES_SELECT,
+              },
+            },
             childGoals: { select: { id: true, title: true, isGoalGroup: true } },
             intervals: { include: { steps: { orderBy: { order: "asc" } } } },
           },
           orderBy: [{ isLast: "asc" }, { order: "asc" }],
         },
-        projects: { include: { actions: { select: { id: true, title: true, tbd: true, done: true } } } },
+        projects: {
+          include: {
+            actions: { select: { id: true, title: true, tbd: true, done: true } },
+            intervals: INTERVAL_DATES_SELECT,
+          },
+        },
         childGoals: { select: { id: true, title: true, isGoalGroup: true } },
         intervals: { include: { steps: { orderBy: { order: "asc" } } } },
         parentGoal: { select: { id: true, title: true, isGoalGroup: true } },

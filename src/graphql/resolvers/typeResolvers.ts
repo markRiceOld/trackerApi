@@ -33,19 +33,31 @@ export const typeResolvers = {
 
   Project: {
     startDate: (parent: any) => {
-      const actions = parent.actions ?? [];
-      const tbdDates = actions.map((a: any) => a.tbd).filter(Boolean);
-      if (!tbdDates.length) return null;
+      const actionDates = (parent.actions ?? []).map((a: any) => a.tbd).filter(Boolean);
+      const intervalStarts = (parent.intervals ?? [])
+        .filter((i: any) => i.status === "active")
+        .map((i: any) => i.createdAt)
+        .filter(Boolean);
+      const allDates = [...actionDates, ...intervalStarts];
+      if (!allDates.length) return null;
       return new Date(
-        Math.min(...tbdDates.map((d: any) => new Date(d).getTime()))
+        Math.min(...allDates.map((d: any) => new Date(d).getTime()))
       ).toISOString();
     },
     endDate: (parent: any) => {
-      const actions = parent.actions ?? [];
-      const tbdDates = actions.map((a: any) => a.tbd).filter(Boolean);
-      if (!tbdDates.length) return null;
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      // Exclude ignored actions: incomplete with a past tbd date
+      const relevantActionDates = (parent.actions ?? [])
+        .filter((a: any) => a.tbd && (a.done || new Date(a.tbd) >= today))
+        .map((a: any) => a.tbd);
+      const intervalEnds = (parent.intervals ?? [])
+        .filter((i: any) => i.status === "active" && i.endTime)
+        .map((i: any) => i.endTime);
+      const allDates = [...relevantActionDates, ...intervalEnds];
+      if (!allDates.length) return null;
       return new Date(
-        Math.max(...tbdDates.map((d: any) => new Date(d).getTime()))
+        Math.max(...allDates.map((d: any) => new Date(d).getTime()))
       ).toISOString();
     },
     actions: async (parent: any, _: any, ctx: any) => {
@@ -72,24 +84,48 @@ export const typeResolvers = {
 
   Goal: {
     startDate: (parent: any) => {
-      const projects = parent.projects ?? [];
-      const dates = projects.flatMap(
-        (p: any) => p.actions?.map((a: any) => a.tbd).filter(Boolean) ?? []
-      );
-      if (!dates.length) return null;
-      return new Date(
-        Math.min(...dates.map((d: any) => new Date(d).getTime()))
-      ).toISOString();
+      const allDates: number[] = [];
+      const collectProject = (p: any) => {
+        for (const a of p.actions ?? []) {
+          if (a.tbd) allDates.push(new Date(a.tbd).getTime());
+        }
+        for (const i of p.intervals ?? []) {
+          if (i.status === "active" && i.createdAt) allDates.push(new Date(i.createdAt).getTime());
+        }
+      };
+      for (const p of parent.projects ?? []) collectProject(p);
+      for (const m of parent.milestones ?? []) {
+        for (const p of m.projects ?? []) collectProject(p);
+      }
+      for (const i of parent.intervals ?? []) {
+        if (i.status === "active" && i.createdAt) allDates.push(new Date(i.createdAt).getTime());
+      }
+      if (!allDates.length) return null;
+      return new Date(Math.min(...allDates)).toISOString();
     },
     endDate: (parent: any) => {
-      const projects = parent.projects ?? [];
-      const dates = projects.flatMap(
-        (p: any) => p.actions?.map((a: any) => a.tbd).filter(Boolean) ?? []
-      );
-      if (!dates.length) return null;
-      return new Date(
-        Math.max(...dates.map((d: any) => new Date(d).getTime()))
-      ).toISOString();
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      const allDates: number[] = [];
+      const collectProject = (p: any) => {
+        for (const a of p.actions ?? []) {
+          if (a.tbd && (a.done || new Date(a.tbd) >= today)) {
+            allDates.push(new Date(a.tbd).getTime());
+          }
+        }
+        for (const i of p.intervals ?? []) {
+          if (i.status === "active" && i.endTime) allDates.push(new Date(i.endTime).getTime());
+        }
+      };
+      for (const p of parent.projects ?? []) collectProject(p);
+      for (const m of parent.milestones ?? []) {
+        for (const p of m.projects ?? []) collectProject(p);
+      }
+      for (const i of parent.intervals ?? []) {
+        if (i.status === "active" && i.endTime) allDates.push(new Date(i.endTime).getTime());
+      }
+      if (!allDates.length) return null;
+      return new Date(Math.max(...allDates)).toISOString();
     },
     intervals: async (parent: any, _: any, ctx: any) => {
       if (parent.intervals != null) return parent.intervals;
