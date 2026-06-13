@@ -109,6 +109,7 @@ model Goal {
   dodFlaggedDimensions   String?    // JSON array of flagged dimension keys
   userId                 String
   user                   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journals               Journal[]
 }
 
 model Milestone {
@@ -143,6 +144,7 @@ model Project {
   milestone   Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journals  Journal[]
 }
 
 // Conceptual steps for each repetition of an interval (not the same as Action).
@@ -220,6 +222,44 @@ model Note {
   @@index([entityType, entityId])
 }
 
+model Journal {
+  id               String   @id @default(uuid())
+  title            String
+  description      String?
+  isArchived       Boolean  @default(false)
+  linkedGoalId     String?
+  linkedProjectId  String?
+  goal             Goal?    @relation(fields: [linkedGoalId], references: [id], onDelete: SetNull)
+  project          Project? @relation(fields: [linkedProjectId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  entries          JournalEntry[]
+  accessList       JournalAccess[]
+  defaultForUserId String?  @unique
+  defaultForUser   User?    @relation("UserDefaultJournal", fields: [defaultForUserId], references: [id], onDelete: SetNull)
+}
+
+model JournalAccess {
+  id        Int      @id @default(autoincrement())
+  journalId String
+  userEmail String
+  addedAt   DateTime @default(now())
+  journal   Journal  @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, userEmail])
+}
+
+model JournalEntry {
+  id                  String   @id @default(uuid())
+  journalId           String
+  body                String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  isArchived          Boolean  @default(false)
+  timestampOverridden Boolean  @default(false)
+  journal             Journal  @relation(fields: [journalId], references: [id], onDelete: Cascade)
+}
+
 model OnboardingProgress {
   id              Int       @id @default(autoincrement())
   userId          String    @unique
@@ -255,4 +295,6 @@ model User {
   notes                Note[]
   onboardingProgress   OnboardingProgress?
   moduleIntrosViewed   ModuleIntroViewed[]
+  discoverableByEmail  Boolean  @default(false)
+  defaultJournal       Journal? @relation("UserDefaultJournal")
 }

@@ -239,6 +239,26 @@ export const typeResolvers = {
     createdAt: (parent: any) => new Date(parent.createdAt).toISOString(),
   },
 
+  Journal: {
+    isDefault: (parent: any, _: any, ctx: any) => parent.defaultForUserId === ctx.user?.id,
+    entryCount: (parent: any) => parent._count?.entries ?? parent.entries?.length ?? 0,
+    entries: (parent: any) => parent.entries ?? [],
+    accessList: (parent: any) => parent.accessList ?? [],
+    linkedGoal: (parent: any) => parent.goal ?? null,
+    linkedProject: (parent: any) => parent.project ?? null,
+    createdAt: (parent: any) => new Date(parent.createdAt).toISOString(),
+    updatedAt: (parent: any) => new Date(parent.updatedAt).toISOString(),
+  },
+
+  JournalEntry: {
+    createdAt: (parent: any) => new Date(parent.createdAt).toISOString(),
+    updatedAt: (parent: any) => new Date(parent.updatedAt).toISOString(),
+  },
+
+  JournalAccess: {
+    addedAt: (parent: any) => new Date(parent.addedAt).toISOString(),
+  },
+
   User: {
     intervals: async (parent: any, _: any, ctx: any) => {
       if (parent.intervals != null) return parent.intervals;

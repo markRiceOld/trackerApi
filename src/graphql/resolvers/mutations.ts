@@ -777,7 +777,7 @@ mutations.deleteNote = requireAuth(async (_, { id }: any, ctx) => {
 
 // ---- Onboarding ----
 mutations.markSlideViewed = requireAuth(async (_, { slideIndex }: any, ctx) => {
-  const isLast = slideIndex >= 5;
+  const isLast = slideIndex >= 6;
   return ctx.prisma.onboardingProgress.upsert({
     where: { userId: ctx.user.id },
     create: {
@@ -798,6 +798,157 @@ mutations.markModuleIntroViewed = requireAuth(async (_, { moduleKey }: any, ctx)
     create: { userId: ctx.user.id, moduleKey },
     update: {},
   });
+  return true;
+});
+
+// ---- Journals ----
+const JOURNAL_INCLUDE = {
+  accessList: true,
+  goal: true,
+  project: true,
+  _count: { select: { entries: true } },
+} as const;
+
+async function getJournalWithAccess(journalId: string, ctx: any): Promise<{ journal: any; userEmail: string }> {
+  const user = await ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { email: true } });
+  if (!user) throw new Error("Unauthorized");
+  const journal = await ctx.prisma.journal.findUnique({
+    where: { id: journalId },
+    include: { accessList: true },
+  });
+  if (!journal) throw new Error("Not found");
+  if (!journal.accessList.some((a: any) => a.userEmail === user.email)) throw new Error("Not found");
+  return { journal, userEmail: user.email };
+}
+
+mutations.createJournal = requireAuth(async (_, { title, description, linkedGoalId, linkedProjectId }: any, ctx) => {
+  if (linkedGoalId && linkedProjectId) throw new Error("Cannot link to both a goal and a project.");
+  const user = await ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { email: true } });
+  if (!user) throw new Error("Unauthorized");
+  const existingDefault = await ctx.prisma.journal.findFirst({ where: { defaultForUserId: ctx.user.id } });
+  return ctx.prisma.journal.create({
+    data: {
+      title: title.trim(),
+      description: description?.trim() ?? undefined,
+      linkedGoalId: linkedGoalId ?? undefined,
+      linkedProjectId: linkedProjectId ?? undefined,
+      ...(!existingDefault && { defaultForUserId: ctx.user.id }),
+      accessList: { create: [{ userEmail: user.email }] },
+    },
+    include: JOURNAL_INCLUDE,
+  });
+});
+
+mutations.updateJournal = requireAuth(async (_, { id, title, description, linkedGoalId, linkedProjectId }: any, ctx) => {
+  await getJournalWithAccess(id, ctx);
+  if (linkedGoalId && linkedProjectId) throw new Error("Cannot link to both a goal and a project.");
+  return ctx.prisma.journal.update({
+    where: { id },
+    data: {
+      ...(title !== undefined && { title: title.trim() }),
+      ...(description !== undefined && { description: description?.trim() ?? null }),
+      ...(linkedGoalId !== undefined && { linkedGoalId: linkedGoalId ?? null }),
+      ...(linkedProjectId !== undefined && { linkedProjectId: linkedProjectId ?? null }),
+    },
+    include: JOURNAL_INCLUDE,
+  });
+});
+
+mutations.archiveJournal = requireAuth(async (_, { id }: any, ctx) => {
+  await getJournalWithAccess(id, ctx);
+  return ctx.prisma.journal.update({
+    where: { id },
+    data: { isArchived: true },
+    include: JOURNAL_INCLUDE,
+  });
+});
+
+mutations.deleteJournal = requireAuth(async (_, { id }: any, ctx) => {
+  const { journal } = await getJournalWithAccess(id, ctx);
+  if (!journal.isArchived) throw new Error("Journal must be archived before it can be deleted.");
+  return ctx.prisma.journal.delete({ where: { id } });
+});
+
+mutations.addJournalAccess = requireAuth(async (_, { journalId, email }: any, ctx) => {
+  const { journal } = await getJournalWithAccess(journalId, ctx);
+  const normalizedEmail = email.toLowerCase().trim();
+  if (journal.accessList.some((a: any) => a.userEmail === normalizedEmail)) {
+    return ctx.prisma.journal.findUnique({ where: { id: journalId }, include: JOURNAL_INCLUDE });
+  }
+  const targetUser = await ctx.prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, discoverableByEmail: true },
+  });
+  if (!targetUser || !targetUser.discoverableByEmail) {
+    throw new Error("No user found with that email address.");
+  }
+  return ctx.prisma.journal.update({
+    where: { id: journalId },
+    data: { accessList: { create: { userEmail: normalizedEmail } } },
+    include: JOURNAL_INCLUDE,
+  });
+});
+
+mutations.removeJournalAccess = requireAuth(async (_, { journalId, email }: any, ctx) => {
+  const { journal } = await getJournalWithAccess(journalId, ctx);
+  if (journal.accessList.length <= 1) throw new Error("Cannot remove the last member.");
+  const record = journal.accessList.find((a: any) => a.userEmail === email);
+  if (!record) throw new Error("Email not in access list.");
+  await ctx.prisma.journalAccess.delete({ where: { id: record.id } });
+  return ctx.prisma.journal.findUnique({ where: { id: journalId }, include: JOURNAL_INCLUDE });
+});
+
+mutations.setDefaultJournal = requireAuth(async (_, { journalId }: any, ctx) => {
+  await getJournalWithAccess(journalId, ctx);
+  await ctx.prisma.journal.updateMany({
+    where: { defaultForUserId: ctx.user.id },
+    data: { defaultForUserId: null },
+  });
+  return ctx.prisma.journal.update({
+    where: { id: journalId },
+    data: { defaultForUserId: ctx.user.id },
+    include: JOURNAL_INCLUDE,
+  });
+});
+
+mutations.createEntry = requireAuth(async (_, { journalId, body }: any, ctx) => {
+  await getJournalWithAccess(journalId, ctx);
+  return ctx.prisma.journalEntry.create({ data: { journalId, body: body.trim() } });
+});
+
+mutations.updateEntry = requireAuth(async (_, { id, body, overrideTimestamp }: any, ctx) => {
+  const entry = await ctx.prisma.journalEntry.findUnique({ where: { id } });
+  if (!entry) throw new Error("Not found");
+  await getJournalWithAccess(entry.journalId, ctx);
+  return ctx.prisma.journalEntry.update({
+    where: { id },
+    data: {
+      body: body.trim(),
+      ...(overrideTimestamp === true && { createdAt: new Date(), timestampOverridden: true }),
+    },
+  });
+});
+
+mutations.archiveEntry = requireAuth(async (_, { id }: any, ctx) => {
+  const entry = await ctx.prisma.journalEntry.findUnique({ where: { id } });
+  if (!entry) throw new Error("Not found");
+  await getJournalWithAccess(entry.journalId, ctx);
+  return ctx.prisma.journalEntry.update({ where: { id }, data: { isArchived: true } });
+});
+
+mutations.addQuickEntry = requireAuth(async (_, { body, journalId }: any, ctx) => {
+  let targetId = journalId;
+  if (!targetId) {
+    const def = await ctx.prisma.journal.findFirst({ where: { defaultForUserId: ctx.user.id } });
+    if (!def) throw new Error("No default journal found.");
+    targetId = def.id;
+  }
+  await getJournalWithAccess(targetId, ctx);
+  return ctx.prisma.journalEntry.create({ data: { journalId: targetId, body: body.trim() } });
+});
+
+mutations.updateDiscoverability = requireAuth(async (_, { discoverableByEmail }: any, ctx) => {
+  await ctx.prisma.user.update({ where: { id: ctx.user.id }, data: { discoverableByEmail } });
   return true;
 });
 

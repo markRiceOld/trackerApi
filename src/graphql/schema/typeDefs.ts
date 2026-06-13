@@ -189,11 +189,46 @@ export const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Journal {
+    id: ID!
+    title: String!
+    description: String
+    isArchived: Boolean!
+    isDefault: Boolean!
+    linkedGoalId: ID
+    linkedProjectId: ID
+    linkedGoal: Goal
+    linkedProject: Project
+    entryCount: Int!
+    entries: [JournalEntry!]!
+    accessList: [JournalAccess!]!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type JournalAccess {
+    id: ID!
+    journalId: ID!
+    userEmail: String!
+    addedAt: String!
+  }
+
+  type JournalEntry {
+    id: ID!
+    journalId: ID!
+    body: String!
+    createdAt: String!
+    updatedAt: String!
+    isArchived: Boolean!
+    timestampOverridden: Boolean!
+  }
+
   type User {
     id: ID!
     email: String!
     name: String
     createdAt: String
+    discoverableByEmail: Boolean!
     actions: [Action!]!
     projects: [Project!]!
     goals: [Goal!]!
@@ -247,6 +282,9 @@ export const typeDefs = gql`
     notes(entityType: String!, entityId: ID!): [Note!]!
     onboardingProgress: OnboardingProgress
     moduleIntroViewed(moduleKey: String!): Boolean
+    journals(includeArchived: Boolean): [Journal!]!
+    journal(id: ID!): Journal
+    journalEntries(journalId: ID!, includeArchived: Boolean, dateFrom: String, dateTo: String, search: String): [JournalEntry!]!
   }
 
   type AuthPayload {
@@ -376,6 +414,19 @@ export const typeDefs = gql`
     addNote(entityType: String!, entityId: ID!, body: String!): Note!
     updateNote(id: ID!, body: String!): Note!
     deleteNote(id: ID!): Note!
+
+    createJournal(title: String!, description: String, linkedGoalId: ID, linkedProjectId: ID): Journal!
+    updateJournal(id: ID!, title: String, description: String, linkedGoalId: ID, linkedProjectId: ID): Journal!
+    archiveJournal(id: ID!): Journal!
+    deleteJournal(id: ID!): Journal!
+    addJournalAccess(journalId: ID!, email: String!): Journal!
+    removeJournalAccess(journalId: ID!, email: String!): Journal!
+    setDefaultJournal(journalId: ID!): Journal!
+    createEntry(journalId: ID!, body: String!): JournalEntry!
+    updateEntry(id: ID!, body: String!, overrideTimestamp: Boolean): JournalEntry!
+    archiveEntry(id: ID!): JournalEntry!
+    addQuickEntry(body: String!, journalId: ID): JournalEntry!
+    updateDiscoverability(discoverableByEmail: Boolean!): Boolean!
 
     register(email: String!, password: String!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!

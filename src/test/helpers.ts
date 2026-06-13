@@ -18,6 +18,10 @@ export async function clearDb() {
   await prisma.goal.updateMany({ data: { parentGoalId: null, parentMilestoneId: null } });
   await prisma.milestone.deleteMany();
   await prisma.goal.deleteMany();
+  // Journals (entries and access before journals, journals before users)
+  await prisma.journalEntry.deleteMany();
+  await prisma.journalAccess.deleteMany();
+  await prisma.journal.deleteMany();
   await prisma.user.deleteMany();
 }
 
@@ -26,6 +30,7 @@ export async function createTestUser(overrides?: {
   email?: string;
   password?: string;
   name?: string;
+  discoverableByEmail?: boolean;
 }) {
   const rawPassword = overrides?.password ?? "password123";
   const hashed = await bcrypt.hash(rawPassword, 4);
@@ -34,6 +39,9 @@ export async function createTestUser(overrides?: {
       email: overrides?.email ?? "test@example.com",
       password: hashed,
       name: overrides?.name ?? "Test User",
+      ...(overrides?.discoverableByEmail !== undefined && {
+        discoverableByEmail: overrides.discoverableByEmail,
+      }),
     },
   });
 }

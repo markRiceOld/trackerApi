@@ -193,4 +193,57 @@ export const queryResolvers = {
     });
     return !!record;
   }),
+
+  journals: requireAuth(async (_, { includeArchived }: any, ctx) => {
+    const user = await ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { email: true } });
+    if (!user) throw new Error("Unauthorized");
+    return ctx.prisma.journal.findMany({
+      where: {
+        accessList: { some: { userEmail: user.email } },
+        ...(!includeArchived && { isArchived: false }),
+      },
+      include: {
+        accessList: true,
+        goal: true,
+        project: true,
+        _count: { select: { entries: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }),
+
+  journal: requireAuth(async (_, { id }: any, ctx) => {
+    const user = await ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { email: true } });
+    if (!user) throw new Error("Unauthorized");
+    const journal = await ctx.prisma.journal.findUnique({
+      where: { id },
+      include: {
+        accessList: true,
+        goal: true,
+        project: true,
+        _count: { select: { entries: true } },
+      },
+    });
+    if (!journal) return null;
+    if (!journal.accessList.some((a: any) => a.userEmail === user.email)) return null;
+    return journal;
+  }),
+
+  journalEntries: requireAuth(async (_, { journalId, includeArchived, dateFrom, dateTo, search }: any, ctx) => {
+    const user = await ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { email: true } });
+    if (!user) throw new Error("Unauthorized");
+    const journal = await ctx.prisma.journal.findUnique({
+      where: { id: journalId },
+      include: { accessList: true },
+    });
+    if (!journal || !journal.accessList.some((a: any) => a.userEmail === user.email)) throw new Error("Not found");
+
+    const where: any = { journalId, ...(!includeArchived && { isArchived: false }) };
+    if (dateFrom && dateTo) where.createdAt = { gte: new Date(dateFrom), lte: new Date(dateTo) };
+    else if (dateFrom) where.createdAt = { gte: new Date(dateFrom) };
+    else if (dateTo) where.createdAt = { lte: new Date(dateTo) };
+    if (search) where.body = { contains: search };
+
+    return ctx.prisma.journalEntry.findMany({ where, orderBy: { createdAt: "asc" } });
+  }),
 };
