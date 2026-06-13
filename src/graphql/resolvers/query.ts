@@ -184,4 +184,13 @@ export const queryResolvers = {
       orderBy: { createdAt: "asc" },
     })
   ),
+  onboardingProgress: requireAuth((_, __, ctx) =>
+    ctx.prisma.onboardingProgress.findUnique({ where: { userId: ctx.user.id } })
+  ),
+  moduleIntroViewed: requireAuth(async (_, { moduleKey }: any, ctx) => {
+    const record = await ctx.prisma.moduleIntroViewed.findUnique({
+      where: { userId_moduleKey: { userId: ctx.user.id, moduleKey } },
+    });
+    return !!record;
+  }),
 };

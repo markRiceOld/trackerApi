@@ -775,4 +775,30 @@ mutations.deleteNote = requireAuth(async (_, { id }: any, ctx) => {
   return ctx.prisma.note.delete({ where: { id } });
 });
 
+// ---- Onboarding ----
+mutations.markSlideViewed = requireAuth(async (_, { slideIndex }: any, ctx) => {
+  const isLast = slideIndex >= 5;
+  return ctx.prisma.onboardingProgress.upsert({
+    where: { userId: ctx.user.id },
+    create: {
+      userId: ctx.user.id,
+      lastSlideViewed: slideIndex,
+      completedAt: isLast ? new Date() : null,
+    },
+    update: {
+      lastSlideViewed: slideIndex,
+      ...(isLast && { completedAt: new Date() }),
+    },
+  });
+});
+
+mutations.markModuleIntroViewed = requireAuth(async (_, { moduleKey }: any, ctx) => {
+  await ctx.prisma.moduleIntroViewed.upsert({
+    where: { userId_moduleKey: { userId: ctx.user.id, moduleKey } },
+    create: { userId: ctx.user.id, moduleKey },
+    update: {},
+  });
+  return true;
+});
+
 export const mutationResolvers = mutations;

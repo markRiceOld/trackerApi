@@ -218,6 +218,11 @@ export const typeDefs = gql`
     order: Int
   }
 
+  type OnboardingProgress {
+    lastSlideViewed: Int!
+    completedAt: String
+  }
+
   type Query {
     actions: [Action!]!
     action(id: ID!): Action
@@ -240,6 +245,8 @@ export const typeDefs = gql`
     notDoneActionsForDate(date: String!): NotDoneActionsForDate!
     me: User
     notes(entityType: String!, entityId: ID!): [Note!]!
+    onboardingProgress: OnboardingProgress
+    moduleIntroViewed(moduleKey: String!): Boolean
   }
 
   type AuthPayload {
@@ -362,6 +369,9 @@ export const typeDefs = gql`
     completeAfterDay(date: String!): DayState!
     "Mark pre-day as completed for date (sets preDayCompletedAt); Today becomes accessible."
     completePreDay(date: String!): DayState!
+
+    markSlideViewed(slideIndex: Int!): OnboardingProgress!
+    markModuleIntroViewed(moduleKey: String!): Boolean!
 
     addNote(entityType: String!, entityId: ID!, body: String!): Note!
     updateNote(id: ID!, body: String!): Note!

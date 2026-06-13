@@ -220,6 +220,24 @@ model Note {
   @@index([entityType, entityId])
 }
 
+model OnboardingProgress {
+  id              Int       @id @default(autoincrement())
+  userId          String    @unique
+  lastSlideViewed Int       @default(0)
+  completedAt     DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ModuleIntroViewed {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  moduleKey String
+  viewedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleKey])
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -228,11 +246,13 @@ model User {
   createdAt DateTime @default(now())
 
   // Relations
-  actions   Action[]
-  projects  Project[]
-  goals     Goal[]
-  intervals Interval[]
-  routines  Routine[]
-  dayStates DayState[]
-  notes     Note[]
+  actions              Action[]
+  projects             Project[]
+  goals                Goal[]
+  intervals            Interval[]
+  routines             Routine[]
+  dayStates            DayState[]
+  notes                Note[]
+  onboardingProgress   OnboardingProgress?
+  moduleIntrosViewed   ModuleIntroViewed[]
 }
