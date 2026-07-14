@@ -9,5 +9,8 @@ RUN npx prisma generate
 RUN npm run build
 RUN npm prune --omit=dev
 
+# Data directory for the SQLite DB; a named volume mounts here at runtime (see docker-compose.yml)
+RUN mkdir -p /app/data
+
 EXPOSE 4000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

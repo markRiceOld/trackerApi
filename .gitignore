@@ -6,3 +6,6 @@ prisma/*.db
 prisma/*.db-journal
 prisma/*.db-wal
 prisma/*.db-shm
+
+# Docker bind-mount data dir (holds the production SQLite DB on the server)
+/data

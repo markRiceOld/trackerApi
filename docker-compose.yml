@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    # Bound to localhost only — nginx on the host reverse-proxies to it and terminates TLS.
+    # Not exposed to the internet directly.
+    ports:
+      - "127.0.0.1:4000:4000"
+    # Secrets (JWT_SECRET, CORS_ORIGINS, ...) live in a .env file on the server — never committed.
+    env_file:
+      - .env
+    # DATABASE_URL is set here (not in .env) so it always points at the mounted volume,
+    # keeping the DB file out of the image's baked-in prisma/ directory.
+    environment:
+      DATABASE_URL: "file:/app/data/prod.db"
+    volumes:
+      - ./data:/app/data
